@@ -1915,6 +1915,8 @@ version = "0.1.0"
 dependencies = [
  "directories",
  "eframe",
+ "egui",
+ "image",
  "local-ip-address",
  "rand",
  "serde",
