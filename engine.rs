@@ -145,12 +145,12 @@ fn run_loop(
         }
 
         let mut cmd = Command::new("ffmpeg");
-        cmd.args(["-hide_banner", "-nostdin", "-listen", "1", "-i"])
+        cmd.args(["-hide_banner", "-loglevel", "info", "-nostdin", "-listen", "1", "-i"])
             .arg(&input)
             .args(["-map", "0:v?", "-map", "0:a?", "-c", "copy", "-f", "tee"])
             .arg(&targets)
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
+            .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
         #[cfg(windows)]
@@ -169,7 +169,8 @@ fn run_loop(
                 break;
             }
         };
-        let mut stderr = child.stderr.take().expect("stderr piped");
+        let mut stderr = child.stderr.take();
+        let mut stdout = child.stdout.take();
         *child_slot.lock().unwrap() = Some(child);
 
         // Stop() may have been pressed while we were spawning.
@@ -184,19 +185,39 @@ fn run_loop(
         // ffmpeg separates progress updates with '\r', so split on both.
         let mut buf = [0u8; 4096];
         let mut line: Vec<u8> = Vec::new();
-        loop {
-            match stderr.read(&mut buf) {
-                Ok(0) | Err(_) => break,
-                Ok(n) => {
-                    for &b in &buf[..n] {
-                        if b == b'\n' || b == b'\r' {
-                            if !line.is_empty() {
-                                handle_line(&String::from_utf8_lossy(&line), &shared, &secrets);
-                                line.clear();
+        if let Some(ref mut s) = stderr {
+            loop {
+                match s.read(&mut buf) {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => {
+                        for &b in &buf[..n] {
+                            if b == b'\n' || b == b'\r' {
+                                if !line.is_empty() {
+                                    handle_line(&String::from_utf8_lossy(&line), &shared, &secrets);
+                                    line.clear();
+                                }
+                            } else {
+                                line.push(b);
                             }
-                        } else {
-                            line.push(b);
                         }
+                    }
+                }
+            }
+        }
+        // If stderr wasn't available (rare), also try stdout
+        if line.is_empty() {
+            let mut buf2 = [0u8; 4096];
+            let mut line2: Vec<u8> = Vec::new();
+            if let Some(ref mut s) = stdout {
+                let _ = s.read(&mut buf2);
+                for &b in &buf2 {
+                    if b == b'\n' || b == b'\r' {
+                        if !line2.is_empty() {
+                            handle_line(&String::from_utf8_lossy(&line2), &shared, &secrets);
+                            line2.clear();
+                        }
+                    } else {
+                        line2.push(b);
                     }
                 }
             }

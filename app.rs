@@ -140,10 +140,15 @@ impl eframe::App for MultiDash {
                             self.engine.stop();
                         }
                     } else {
+                        let has_target = self.cfg.slots.iter().any(|s| s.enabled && !s.rtmp_url.trim().is_empty() && !s.stream_key.trim().is_empty());
                         let go = egui::Button::new(RichText::new("▶  Start MultiDash").strong());
-                        if ui.add_sized([180.0, 32.0], go).clicked() {
+                        let go = if !has_target { go.sense(egui::Sense::hover()) } else { go };
+                        if has_target && ui.add_sized([180.0, 32.0], go).clicked() {
                             self.cfg.save();
                             self.engine.start(self.cfg.clone());
+                        }
+                        if !has_target {
+                            ui.label(RichText::new("Enable at least one slot with RTMP URL + stream key").color(Color32::GRAY));
                         }
                     }
                     if !stats.is_empty() {
