@@ -8,8 +8,8 @@ use eframe::egui;
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([660.0, 820.0])
-            .with_min_inner_size([560.0, 620.0])
+            .with_inner_size([700.0, 860.0])
+            .with_min_inner_size([620.0, 680.0])
             .with_app_id("multidash"),
         ..Default::default()
     };
